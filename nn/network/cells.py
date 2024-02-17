@@ -1,6 +1,27 @@
 import numpy as np
 import tensorflow as tf
 import sys
+import torch as th
+import torch.nn.functional as F
+
+
+class ODECell(th.nn.RNNCell):
+    def __init__(self, input_shape, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.input_shape = input_shape
+
+        self.dt = th.nn.Parameter(th.tensor(0.3), requires_grad=False)
+
+class SpringODECell(ODECell):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.k = th.nn.Parameter(th.tensor(np.log(1.0)))
+        self.equil = th.nn.Parameter(th.tensor(np.log(1.0)))
+
+    def forward(self, poss, vels):
+        pass
 
 
 class ode_cell(tf.nn.rnn_cell.BasicRNNCell):
@@ -41,8 +62,8 @@ class bouncing_ode_cell(ode_cell):
                 # Compute wall collisions. Image boundaries are hard-coded.
                 vels[j] = tf.where(tf.greater(poss[j]+2, 32), -vels[j], vels[j])
                 vels[j] = tf.where(tf.greater(0.0, poss[j]-2), -vels[j], vels[j])
-                poss[j] = tf.where(tf.greater(poss[j]+2, 32), 32-(poss[j]+2-32)-2, poss[j])  
-                poss[j] = tf.where(tf.greater(0.0, poss[j]-2), -(poss[j]-2)+2, poss[j]) 
+                poss[j] = tf.where(tf.greater(poss[j]+2, 32), 32-(poss[j]+2-32)-2, poss[j])
+                poss[j] = tf.where(tf.greater(0.0, poss[j]-2), -(poss[j]-2)+2, poss[j])
 
         poss = tf.concat(poss, axis=1)
         vels = tf.concat(vels, axis=1)
@@ -78,7 +99,7 @@ class spring_ode_cell(ode_cell):
 
             poss[0] = poss[0] + self.dt/5*vels[0]
             poss[1] = poss[1] + self.dt/5*vels[1]
- 
+
         poss = tf.concat(poss, axis=1)
         vels = tf.concat(vels, axis=1)
         return poss, vels
