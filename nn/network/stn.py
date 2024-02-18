@@ -211,9 +211,9 @@ class SpatialTransformer(th.nn.Module):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    def forward(self, x, theta):
+    def forward(self, x, theta, shape):
         theta = theta.view(-1, 2, 3)
-        grid = F.affine_grid(theta, x.shape)
+        grid = F.affine_grid(theta, shape).float()
         x = F.grid_sample(x, grid)
         return x
 

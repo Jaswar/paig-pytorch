@@ -2,6 +2,7 @@ import torch as th
 import torch.nn.functional as F
 from unet import UNet, ShallowUNet
 import numpy as np
+from stn import SpatialTransformer
 
 
 class VariableFromNetwork(th.nn.Module):
@@ -99,29 +100,64 @@ class ConvSTDecoder(th.nn.Module):
         self.n_objs = n_objs
         self.template_size = input_shape[-1] // 2
 
-        self.template_var = VariableFromNetwork((n_objs, self.template_size, self.template_size, 1))
-        self.contents_var = VariableFromNetwork((n_objs, self.template_size, self.template_size, self.input_shape[0]))
+        self.stn = SpatialTransformer()
+
+        self.template_var = VariableFromNetwork((n_objs, 1, self.template_size, self.template_size))
+        self.contents_var = VariableFromNetwork((n_objs, self.input_shape[0], self.template_size, self.template_size))
+        self.background_var = VariableFromNetwork((1, *self.input_shape))
 
         self.sigma_log = th.nn.Parameter(th.tensor(np.log(1.0)))
 
         self.template = None
         self.contents = None
+        self.background_content = None
+        self.transformer_contents = None
+        self.transformer_masks = None
 
     def forward(self, x):
+        # assuming cartesian (2D) coordinates (only works with these coordinates for now)
+        # x: B x 2 * n_objs
         sigma = th.exp(self.sigma_log)
 
         self.template = self.template_var()
-        template = th.tile(self.template, [1, 1, 1, 3]) + 5  # I wonder what this +5 is for...
+        template = th.tile(self.template, [1, 3, 1, 1]) + 5  # I wonder what this +5 is for...
         self.contents = self.contents_var()
         contents = F.sigmoid(self.contents)
-        joint = th.concat([template, contents], dim=-1)
+        joint = th.concat([template, contents], dim=1)
 
         out_temp_cont = []
+        # iterate over each object
         for loc, join in zip(th.split(x, x.shape[-1] // self.n_objs, dim=-1),
                              th.split(joint, joint.shape[0] // self.n_objs, dim=0)):
-            raise NotImplementedError()
+            theta0 = th.tile(sigma, [x.shape[0]])
+            theta1 = th.tile(th.tensor([0.0]), [x.shape[0]])
+            theta2 = (self.input_shape[1] / 2 - loc[:, 0]) / self.template_size * sigma
+            theta3 = th.tile(th.tensor([0.0]), [x.shape[0]])
+            theta4 = th.tile(sigma, [x.shape[0]])
+            theta5 = (self.input_shape[2] / 2 - loc[:, 1]) / self.template_size * sigma
+            theta = th.stack([theta0, theta1, theta2, theta3, theta4, theta5], dim=1)
+
+            out_join = th.tile(join, [x.shape[0], 1, 1, 1])
+            out_join = self.stn(out_join, theta, [x.shape[0], *self.input_shape])
+            out_join = th.split(out_join, out_join.shape[1] // 2, dim=1)
+            out_temp_cont.append(out_join)
+
+        self.background_content = F.sigmoid(self.background_var())
+        background_content = th.tile(self.background_content, [x.shape[0], 1, 1, 1])
+        contents = [p[1] for p in out_temp_cont]
+        contents.append(background_content)
+        self.transformer_contents = contents
+
+        background_mask = th.ones_like(out_temp_cont[0][0])
+        masks = th.stack([p[0] - 5 for p in out_temp_cont] + [background_mask], dim=1)
+        masks = F.softmax(masks, dim=1)
+        masks = th.unbind(masks, dim=1)
+        self.transformer_masks = masks
+
+        out = sum([mask * content for mask, content in zip(masks, contents)])
+        return out
 
 
-net = VelocityEncoder(3, 4, 12)
-x = th.randn((5, 4, 2 * 3))
+net = ConvSTDecoder((3, 32, 32), 3)
+x = th.randn((5, 3 * 2))
 print(net(x).shape)
