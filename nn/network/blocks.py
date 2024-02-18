@@ -1,8 +1,8 @@
 import torch as th
 import torch.nn.functional as F
-from unet import UNet, ShallowUNet
+from nn.network.unet import UNet, ShallowUNet
 import numpy as np
-from stn import SpatialTransformer
+from nn.network.stn import SpatialTransformer
 
 
 class VariableFromNetwork(th.nn.Module):

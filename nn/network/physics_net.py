@@ -1,7 +1,7 @@
 import torch as th
 import torch.nn.functional as F
-from blocks import ConvEncoder, VelocityEncoder, ConvSTDecoder, VariableFromNetwork
-from cells import SpringODECell
+from nn.network.blocks import ConvEncoder, VelocityEncoder, ConvSTDecoder, VariableFromNetwork
+from nn.network.cells import SpringODECell
 
 
 class TaskSetup(object):
@@ -34,7 +34,7 @@ class PhysicsNet(th.nn.Module):
                  **kwargs):
         super().__init__(*args, **kwargs)
         self.task = task
-        self.input_shape = input_shape
+        self.input_shape = input_shape  # for RGB 32x32 is: (3, 32, 32)
         self.seq_len = seq_len
         self.input_steps = input_steps
         self.pred_steps = pred_steps
