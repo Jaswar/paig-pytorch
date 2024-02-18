@@ -41,7 +41,36 @@ class ConvEncoder(th.nn.Module):
         return h
 
 
+# only support the version with alt_vel=False (for now)
 class VelocityEncoder(th.nn.Module):
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, n_objs, input_steps, coord_units, hidden_dim=100, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.n_objs = n_objs
+        self.input_steps = input_steps
+        self.coord_units = coord_units
+        self.hidden_dim = hidden_dim
+
+        self.dense0 = th.nn.Linear(input_steps * coord_units // n_objs // 2, hidden_dim)
+        self.dense1 = th.nn.Linear(hidden_dim, hidden_dim)
+        self.dense2 = th.nn.Linear(hidden_dim, coord_units // n_objs // 2)
+
+    def forward(self, x):
+        # assuming cartesian (2D) coordinates
+        # x: B x input_steps x (2 * n_objs)
+        h = th.split(x, x.shape[2] // self.n_objs, dim=2)
+        h = th.concat(h, dim=0)  # h: n_objs * B x input_steps x 2
+        h = th.flatten(h, start_dim=1)  # instead of the .resize from original code (same output)
+
+        h = F.tanh(self.dense0(h))
+        h = F.tanh(self.dense1(h))
+        h = self.dense2(h)  # h: n_objs * B x 2
+
+        h = th.split(h, h.shape[0] // self.n_objs, dim=0)
+        h = th.concat(h, dim=1)  # B x 2 * n_objs
+        return h
+
+
+net = VelocityEncoder(3, 4, 12)
+x = th.randn((5, 4, 2 * 3))
+print(net(x).shape)
