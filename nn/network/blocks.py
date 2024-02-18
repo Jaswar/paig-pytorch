@@ -1,13 +1,33 @@
 import torch as th
 import torch.nn.functional as F
 from unet import UNet, ShallowUNet
+import numpy as np
+
+
+class VariableFromNetwork(th.nn.Module):
+
+    def __init__(self, shape, init_size=10, hidden_dim=200, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.init_size = init_size
+        self.shape = shape
+        self.hidden_dim = hidden_dim
+
+        self.dense0 = th.nn.Linear(init_size, hidden_dim)
+        self.dense1 = th.nn.Linear(hidden_dim, np.prod(shape))
+
+    def forward(self):
+        h = th.ones((1, self.init_size))
+        h = F.tanh(self.dense0(h))
+        h = self.dense1(h)
+        h = h.view(self.shape)
+        return h
 
 
 class ConvEncoder(th.nn.Module):
 
     def __init__(self, input_shape, n_objs, num_outputs, hidden_dim=200, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.input_shape = input_shape
+        self.input_shape = input_shape  # for RGB 32x32 is: (3, 32, 32)
         self.n_objs = n_objs
         self.hidden_dim = hidden_dim
         self.num_outputs = num_outputs
@@ -69,6 +89,37 @@ class VelocityEncoder(th.nn.Module):
         h = th.split(h, h.shape[0] // self.n_objs, dim=0)
         h = th.concat(h, dim=1)  # B x 2 * n_objs
         return h
+
+
+class ConvSTDecoder(th.nn.Module):
+
+    def __init__(self, input_shape, n_objs, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.input_shape = input_shape  # for RGB 32x32 is: (3, 32, 32)
+        self.n_objs = n_objs
+        self.template_size = input_shape[-1] // 2
+
+        self.template_var = VariableFromNetwork((n_objs, self.template_size, self.template_size, 1))
+        self.contents_var = VariableFromNetwork((n_objs, self.template_size, self.template_size, self.input_shape[0]))
+
+        self.sigma_log = th.nn.Parameter(th.tensor(np.log(1.0)))
+
+        self.template = None
+        self.contents = None
+
+    def forward(self, x):
+        sigma = th.exp(self.sigma_log)
+
+        self.template = self.template_var()
+        template = th.tile(self.template, [1, 1, 1, 3]) + 5  # I wonder what this +5 is for...
+        self.contents = self.contents_var()
+        contents = F.sigmoid(self.contents)
+        joint = th.concat([template, contents], dim=-1)
+
+        out_temp_cont = []
+        for loc, join in zip(th.split(x, x.shape[-1] // self.n_objs, dim=-1),
+                             th.split(joint, joint.shape[0] // self.n_objs, dim=0)):
+            raise NotImplementedError()
 
 
 net = VelocityEncoder(3, 4, 12)
