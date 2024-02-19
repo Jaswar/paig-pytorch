@@ -5,6 +5,14 @@ import numpy as np
 from nn.network.stn import SpatialTransformer
 
 
+# method to initialize exactly as in TF: weights with Xavier, biases with 0
+def initialize_linear(layer):
+    if layer.bias is not None:
+        th.nn.init.zeros_(layer.bias)
+    if layer.weight is not None:
+        th.nn.init.xavier_uniform_(layer.weight)
+
+
 class VariableFromNetwork(th.nn.Module):
 
     def __init__(self, shape, device, init_size=10, hidden_dim=200, *args, **kwargs):
@@ -16,6 +24,9 @@ class VariableFromNetwork(th.nn.Module):
 
         self.dense0 = th.nn.Linear(init_size, hidden_dim)
         self.dense1 = th.nn.Linear(hidden_dim, np.prod(shape))
+
+        initialize_linear(self.dense0)
+        initialize_linear(self.dense1)
 
     def forward(self):
         h = th.ones((1, self.init_size)).to(self.device)
@@ -38,6 +49,10 @@ class ConvEncoder(th.nn.Module):
         self.dense0 = th.nn.Linear(input_shape[0] * input_shape[1] * input_shape[2], hidden_dim)
         self.dense1 = th.nn.Linear(hidden_dim, hidden_dim)
         self.dense2 = th.nn.Linear(hidden_dim, num_outputs)
+
+        initialize_linear(self.dense0)
+        initialize_linear(self.dense1)
+        initialize_linear(self.dense2)
 
         self.enc_masks = None
         self.masked_objs = None
@@ -76,6 +91,10 @@ class VelocityEncoder(th.nn.Module):
         self.dense0 = th.nn.Linear(input_steps * num_outputs, hidden_dim)
         self.dense1 = th.nn.Linear(hidden_dim, hidden_dim)
         self.dense2 = th.nn.Linear(hidden_dim, num_outputs)
+
+        initialize_linear(self.dense0)
+        initialize_linear(self.dense1)
+        initialize_linear(self.dense2)
 
     def forward(self, x):
         # assuming cartesian (2D) coordinates
