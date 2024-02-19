@@ -102,7 +102,7 @@ class ConvSTDecoder(th.nn.Module):
         self.n_objs = n_objs
         self.template_size = input_shape[-1] // 2
 
-        self.stn = SpatialTransformer()
+        self.stn = SpatialTransformer(device)
 
         self.template_var = VariableFromNetwork((n_objs, 1, self.template_size, self.template_size), device)
         self.contents_var = VariableFromNetwork((n_objs, self.input_shape[0], self.template_size, self.template_size), device)
