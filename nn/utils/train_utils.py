@@ -19,14 +19,6 @@ def compute_loss(target, output,
     return train_loss, eval_losses
 
 
-# def build_optimizer(model, base_lr, anneal_lr):
-#     optimizer = th.optim.RMSprop(model.parameters(), lr=base_lr)
-#
-#     scheduler = None
-#     if anneal_lr:
-#         scheduler =
-
-
 def train_epoch(model, train_loader, optimizer, autoencoder_loss, device):
     model.train()
     total_loss = 0
