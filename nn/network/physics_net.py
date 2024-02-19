@@ -30,6 +30,7 @@ class PhysicsNet(th.nn.Module):
                  seq_len=20,
                  input_steps=3,
                  pred_steps=5,
+                 device='cpu',
                  *args,
                  **kwargs):
         super().__init__(*args, **kwargs)
@@ -38,6 +39,7 @@ class PhysicsNet(th.nn.Module):
         self.seq_len = seq_len
         self.input_steps = input_steps
         self.pred_steps = pred_steps
+        self.device = device
 
         self.task_setup = TASK_SETUPS[task]
         self.extrap_steps = self.seq_len - self.input_steps - self.pred_steps
@@ -50,7 +52,8 @@ class PhysicsNet(th.nn.Module):
                                                 input_steps=self.input_steps,
                                                 num_outputs=self.task_setup.num_coords)
         self.conv_st_decoder = ConvSTDecoder(self.input_shape,
-                                             n_objs=self.task_setup.n_objs)
+                                             n_objs=self.task_setup.n_objs,
+                                             device=self.device)
 
         self.recons_out = None
         self.enc_pos = None

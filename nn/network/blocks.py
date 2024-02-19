@@ -7,9 +7,10 @@ from nn.network.stn import SpatialTransformer
 
 class VariableFromNetwork(th.nn.Module):
 
-    def __init__(self, shape, init_size=10, hidden_dim=200, *args, **kwargs):
+    def __init__(self, shape, device, init_size=10, hidden_dim=200, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.init_size = init_size
+        self.device = device
         self.shape = shape
         self.hidden_dim = hidden_dim
 
@@ -17,7 +18,7 @@ class VariableFromNetwork(th.nn.Module):
         self.dense1 = th.nn.Linear(hidden_dim, np.prod(shape))
 
     def forward(self):
-        h = th.ones((1, self.init_size))
+        h = th.ones((1, self.init_size)).to(self.device)
         h = F.tanh(self.dense0(h))
         h = self.dense1(h)
         h = h.view(self.shape)
@@ -94,17 +95,18 @@ class VelocityEncoder(th.nn.Module):
 
 class ConvSTDecoder(th.nn.Module):
 
-    def __init__(self, input_shape, n_objs, *args, **kwargs):
+    def __init__(self, input_shape, device, n_objs, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.input_shape = input_shape  # for RGB 32x32 is: (3, 32, 32)
+        self.device = device
         self.n_objs = n_objs
         self.template_size = input_shape[-1] // 2
 
         self.stn = SpatialTransformer()
 
-        self.template_var = VariableFromNetwork((n_objs, 1, self.template_size, self.template_size))
-        self.contents_var = VariableFromNetwork((n_objs, self.input_shape[0], self.template_size, self.template_size))
-        self.background_var = VariableFromNetwork((1, *self.input_shape))
+        self.template_var = VariableFromNetwork((n_objs, 1, self.template_size, self.template_size), device)
+        self.contents_var = VariableFromNetwork((n_objs, self.input_shape[0], self.template_size, self.template_size), device)
+        self.background_var = VariableFromNetwork((1, *self.input_shape), device)
 
         self.sigma_log = th.nn.Parameter(th.tensor(np.log(1.0)))
 
@@ -126,13 +128,15 @@ class ConvSTDecoder(th.nn.Module):
         joint = th.concat([template, contents], dim=1)
 
         out_temp_cont = []
+        # to avoid moving to device multiple times
+        all_zeros = th.tile(th.tensor([0.0]), [x.shape[0]]).to(self.device)
         # iterate over each object
         for loc, join in zip(th.split(x, x.shape[-1] // self.n_objs, dim=-1),
                              th.split(joint, joint.shape[0] // self.n_objs, dim=0)):
             theta0 = th.tile(sigma, [x.shape[0]])
-            theta1 = th.tile(th.tensor([0.0]), [x.shape[0]])
+            theta1 = all_zeros
             theta2 = (self.input_shape[1] / 2 - loc[:, 0]) / self.template_size * sigma
-            theta3 = th.tile(th.tensor([0.0]), [x.shape[0]])
+            theta3 = all_zeros
             theta4 = th.tile(sigma, [x.shape[0]])
             theta5 = (self.input_shape[2] / 2 - loc[:, 1]) / self.template_size * sigma
             theta = th.stack([theta0, theta1, theta2, theta3, theta4, theta5], dim=1)

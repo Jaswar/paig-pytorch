@@ -27,9 +27,11 @@ def compute_loss(target, output,
 #         scheduler =
 
 
-def train_epoch(model, train_loader, optimizer, autoencoder_loss):
+def train_epoch(model, train_loader, optimizer, autoencoder_loss, device):
     model.train()
+    total_loss = 0
     for batch_idx, batch in enumerate(train_loader):
+        batch = batch.to(device)
         output = model(batch)
 
         target = batch[:, model.input_steps:]
@@ -43,12 +45,16 @@ def train_epoch(model, train_loader, optimizer, autoencoder_loss):
         th.nn.utils.clip_grad_value_(model.parameters(), 1)
         optimizer.step()
 
-        print(f'--train-- iteration: {batch_idx + 1}/{len(train_loader)}, loss: {train_loss.item()}')
+        total_loss += train_loss.item()
+
+    print(f'--train-- loss: {total_loss / len(train_loader)}')
 
 
-def val_epoch(model, val_loader, autoencoder_loss):
+def val_epoch(model, val_loader, autoencoder_loss, device):
     model.eval()
+    total_loss = 0
     for batch_idx, batch in enumerate(val_loader):
+        batch = batch.to(device)
         output = model(batch)
 
         target = batch[:, model.input_steps:]
@@ -57,5 +63,7 @@ def val_epoch(model, val_loader, autoencoder_loss):
                                                recons_target, model.recons_out,
                                                autoencoder_loss, model.pred_steps)
 
-        print(f'--val-- iteration: {batch_idx + 1}/{len(val_loader)}, loss: {train_loss.item()}')
+        total_loss += train_loss.item()
+
+    print(f'--val-- loss: {total_loss / len(val_loader)}')
 
