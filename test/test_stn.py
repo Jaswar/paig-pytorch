@@ -6,10 +6,8 @@ import tensorflow.compat.v1 as tf
 
 
 def test_stn_model():
-    torch_stn = SpatialTransformer()
+    torch_stn = SpatialTransformer('cpu')
     tf_stn = stn
-
-    np.random.seed(42)
 
     shape = (5, 3, 32, 32)
     x = np.random.normal(size=(5, 3, 16, 16))
@@ -26,13 +24,11 @@ def test_stn_model():
     torch_out = torch_stn(torch_x, torch_theta, torch_shape).numpy()
     tf_out = tf.transpose(tf_stn(tf_x, tf_theta, tf_shape), perm=[0, 3, 1, 2]).numpy()
 
-    # count = 0
-    # for torch_el, tf_el in zip(torch_out.flatten(), tf_out.flatten()):
-    #     if abs(torch_el - tf_el) > 0.0001:
-    #         print(torch_el, tf_el)
-    #         count += 1
-    # print(count)
-    print(np.allclose(torch_out, tf_out, atol=1e-4))
+    assert torch_out.shape == tf_out.shape
+    assert np.allclose(torch_out, tf_out, atol=1e-4)
 
-test_stn_model('cpu')
+
+if __name__ == '__main__':
+    for _ in range(10):
+        test_stn_model()
 
