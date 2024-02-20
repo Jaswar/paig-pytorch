@@ -37,9 +37,9 @@ def train_epoch(model, train_loader, optimizer, autoencoder_loss, device):
         th.nn.utils.clip_grad_value_(model.parameters(), 1)
         optimizer.step()
 
-        total_loss += train_loss.item()
+        total_loss = train_loss.item()
 
-    print(f'--train-- loss: {total_loss / len(train_loader)}')
+    print(f'--train-- loss: {total_loss}')
 
 
 def val_epoch(model, val_loader, autoencoder_loss, device):

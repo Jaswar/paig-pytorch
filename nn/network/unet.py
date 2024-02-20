@@ -53,6 +53,14 @@ def pad(x1, x2):
     return F.pad(x1, (diff_0 // 2, diff_0 - diff_0 // 2, diff_1 // 2, diff_1 - diff_1 // 2))
 
 
+def initialize_convolutions(layers):
+    for layer in layers:
+        if layer.weight is not None:
+            th.nn.init.xavier_uniform_(layer.weight)
+        if layer.bias is not None:
+            th.nn.init.zeros_(layer.bias)
+
+
 class UNet(th.nn.Module):
 
     def __init__(self, in_channels, base_channels, out_channels, upsample=True, *args, **kwargs):
@@ -213,6 +221,11 @@ class ShallowUNet(th.nn.Module):
         self.conv4_1 = th.nn.Conv2d(base_channels, base_channels, kernel_size=3, padding='same')
 
         self.conv5 = th.nn.Conv2d(base_channels, out_channels, kernel_size=1, padding='same')
+
+        initialize_convolutions([self.conv0_0, self.conv0_1, self.conv1_0, self.conv1_1,
+                                 self.conv2_0, self.conv2_1, self.conv3_0, self.conv3_1,
+                                 self.conv4_0, self.conv4_1, self.conv5,
+                                 self.upsample0, self.upsample1])
 
     def forward(self, x):
         h = x

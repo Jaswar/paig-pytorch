@@ -20,7 +20,8 @@ if __name__ == '__main__':
 
     model = PhysicsNet('spring_color', train_dataset[0][0].shape,
                        seq_len=12, input_steps=4, pred_steps=6, device=device)
-    optimizer = th.optim.RMSprop(model.parameters(), lr=3e-4)
+    optimizer = th.optim.RMSprop(model.parameters(), lr=3e-4, alpha=0.9, eps=1e-10)
+    # optimizer = th.optim.SGD(model.parameters(), lr=3e-4)
     scheduler = th.optim.lr_scheduler.StepLR(optimizer, step_size=int(0.75 * epochs), gamma=0.2)
     model = model.to(device)
 
